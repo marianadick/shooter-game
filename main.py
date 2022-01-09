@@ -7,19 +7,47 @@ screen_width = 800
 screen_height = 600
 
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption('Metal Slug')
+pygame.display.set_caption('Shooter')
+
+#set framerate
+clock = pygame.time.Clock()
+FPS = 60
 
 #define player action variables
 moving_left = False
 moving_right = False
 
+#define colors
+BG = (144, 201, 120)
+
+def draw_bg():
+    screen.fill(BG)
+
 #classes
 class Soldier(pygame.sprite.Sprite):
-    def __init__(self, x, y, scale, speed):
+    def __init__(self, char_type, x, y, scale, speed):
         pygame.sprite.Sprite.__init__(self)
+        self.char_type = char_type
         self.speed = speed
-        img = pygame.image.load('assets/img/player/Idle/0.png')
-        self.image = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+        self.direction = 1
+        self.flip = False
+        self.animation_list = []
+        self.frame_index = 0
+        self.action = 0
+        self.update_time = pygame.time.get_ticks()
+        temp_list = []
+        for i in range(5):
+            img = pygame.image.load(f'assets/img/{self.char_type}/Idle/{i}.png')
+            img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+            temp_list.append(img)
+        self.animation_list.append(temp_list)
+        temp_list = []
+        for i in range(6):
+            img = pygame.image.load(f'assets/img/{self.char_type}/Run/{i}.png')
+            img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
+            temp_list.append(img)
+        self.animation_list.append(temp_list)
+        self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
 
@@ -31,23 +59,64 @@ class Soldier(pygame.sprite.Sprite):
         #assign movement variables if moving left or right
         if moving_left:
             dx =- self.speed
-
+            self.flip = True
+            self.direction = -1
         if moving_right:
             dx = self.speed
+            self.flip = False
+            self.direction = 1
 
         #update rectangle position
         self.rect.x += dx
         self.rect.y += dy
 
-    def draw(self):
-        screen.blit(self.image, self.rect)
+    def update_animation(self):
+        #update animation
+        animation_cooldown = 100
 
-player = Soldier(200, 200, 3, 5)
+        #update image depending on current frame
+        self.image = self.animation_list[self.action][self.frame_index]
+
+        #check if enough time has passed since the last update
+        if pygame.time.get_ticks() - self.update_time > animation_cooldown:
+            self.update_time = pygame.time.get_ticks()
+            self.frame_index += 1
+        #if the animation has run out then reset back to start
+        if self.frame_index >= len(self.animation_list[self.action]):
+            self.frame_index = 0
+
+    def update_action(self, new_action):
+        #check if the new action is different to the previous one
+        if new_action != self.action:
+            self.action = new_action
+
+        #update the animation settings
+            self.frame_index = 0
+            self.update_time = pygame.time.get_ticks()
+
+    def draw(self):
+        screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
+
+player = Soldier('player', 200, 200, 3, 5)
+enemy = Soldier('enemy', 400, 200, 3, 5)
 
 run = True
 while run:
 
+    clock.tick(FPS)
+
+    draw_bg()
+
+    player.update_animation()
     player.draw()
+    enemy.draw()
+
+    #update player actions
+    if moving_left or moving_right:
+        player.update_action(1)#1: run
+    else:
+        player.update_action(0)#0: idle
+    player.move(moving_left, moving_right)
 
     for event in pygame.event.get():
         #quit game
